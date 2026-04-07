@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hành Trang Số - Tin Học 8</title>
+    <!-- Phông chữ chuyên nghiệp -->
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Hiệu ứng pháo hoa chúc mừng -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    
+    <!-- Firebase SDKs - Tích hợp đồng bộ Online/Offline -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        let firebaseConfig = null;
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.warn("Đang chạy ở chế độ Offline hoàn toàn.");
+        }
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hanhtrangso-tin8';
+
+        window.syncStats = async function() {
+            if (!navigator.onLine || !firebaseConfig) return;
+            try {
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+                if (!auth.currentUser) {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                }
+                if (!auth.currentUser) return;
+                let pendingHits = parseInt(localStorage.getItem('htso_pending_sync') || "0");
+                const globalDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'statistics', 'global_counter');
+                if (pendingHits > 0) {
+                    const snap = await getDoc(globalDocRef);
+                    if (snap.exists()) {
+                        await updateDoc(globalDocRef, { total_access: increment(pendingHits) });
+                    } else {
+                        await setDoc(globalDocRef, { total_access: pendingHits });
+                    }
+                    localStorage.setItem('htso_pending_sync', "0");
+                }
+                onSnapshot(globalDocRef, (doc) => {
+                    if (doc.exists()) {
+                        document.getElementById('total-global-num').innerText = doc.data().total_access.toLocaleString();
+                    }
+                });
+            } catch (err) {
+                console.error("Lỗi đồng bộ Firebase:", err);
+            }
+        };
+        window.addEventListener('online', window.syncStats);
+    </script>
+
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --accent: #f72585;
+            --bg: #f8faff;
+            --white: #ffffff;
+            --dark: #2b2d42;
+            --success: #4cc9f0;
+            --warning: #f8961e;
+            --error: #f94144;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        * { box-sizing: border-box; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            margin: 0; background-color: var(--bg); color: var(--dark);
+            overflow-x: hidden; line-height: 1.6;
+        }
+
+        body::before {
+            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 10% 20%, rgba(67, 97, 238, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 90% 80%, rgba(247, 37, 133, 0.05) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white; padding: 60px 20px; text-align: center;
+            border-bottom-left-radius: 60px; border-bottom-right-radius: 60px;
+            box-shadow: 0 15px 35px rgba(67, 97, 238, 0.2); position: relative; overflow: hidden;
+        }
+
+        .visitor-stats {
+            position: absolute; top: 20px; right: 30px;
+            background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
+            padding: 12px 20px; border-radius: 25px; font-size: 0.85rem;
+            text-align: right; border: 1px solid rgba(255, 255, 255, 0.2); z-index: 10;
+        }
+
+        header h1 { margin: 0; font-size: 2.8rem; font-weight: 800; text-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        header p { margin: 15px 0 0; opacity: 0.9; font-size: 1.2rem; font-weight: 300; }
+
+        .container { max-width: 1200px; margin: -40px auto 60px; padding: 0 20px; }
+
+        .lesson-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .lesson-card {
+            background: var(--white); border-radius: 35px; padding: 35px 20px;
+            text-align: center; cursor: pointer; box-shadow: var(--shadow);
+            position: relative; z-index: 1; border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        .lesson-card:hover { transform: translateY(-12px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+        .lesson-card .icon {
+            font-size: 40px; margin-bottom: 20px;
+            background: #f0f4ff; width: 80px; height: 80px; line-height: 80px;
+            border-radius: 25px; margin-left: auto; margin-right: auto;
+        }
+        .lesson-card h3 { margin: 10px 0; color: var(--primary); font-size: 1.1rem; font-weight: 700; line-height: 1.3; }
+
+        .main-back-btn {
+            background: var(--white); border: none; color: var(--primary);
+            padding: 15px 30px; border-radius: 20px; cursor: pointer;
+            font-weight: 800; margin-bottom: 30px; display: inline-flex;
+            align-items: center; gap: 12px; box-shadow: var(--shadow);
+            z-index: 100; position: relative;
+        }
+        .main-back-btn:hover { background: var(--primary); color: white; transform: translateX(-5px); }
+
+        .sub-nav-btn {
+            background: #f1f3f9; border: 1px solid #e0e7ff; color: #4361ee;
+            padding: 10px 20px; border-radius: 12px; cursor: pointer;
+            font-weight: 600; display: inline-flex; align-items: center; gap: 8px; margin-top: 20px;
+        }
+
+        .station-nav {
+            display: flex; background: white; padding: 10px; border-radius: 25px;
+            gap: 10px; margin-bottom: 40px; box-shadow: var(--shadow);
+        }
+        .station-btn {
+            flex: 1; padding: 18px; border: none; background: none;
+            border-radius: 20px; font-weight: 700; cursor: pointer; color: #8d99ae; font-size: 1rem;
+        }
+        .station-btn.active { 
+            background: linear-gradient(135deg, var(--primary), var(--primary-light)); 
+            color: white; box-shadow: 0 8px 20px rgba(67, 97, 238, 0.3); 
+        }
+        .station-content {
+            background: var(--white); border-radius: 40px; padding: 45px;
+            min-height: 550px; box-shadow: var(--shadow);
+        }
+
+        .mode-selector { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .mode-card { background: #f8faff; border: 2px solid #e0e7ff; border-radius: 25px; padding: 30px; text-align: center; cursor: pointer; }
+        .mode-card:hover { border-color: var(--primary); background: #f0f4ff; }
+        .mode-card i { font-size: 40px; display: block; margin-bottom: 15px; }
+        .knowledge-display { display: none; }
+        .knowledge-display.active { display: block; }
+        .mindmap-img { max-width: 100%; height: auto; border-radius: 25px; border: 8px solid #f8faff; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .video-container { width: 100%; max-width: 850px; margin: 0 auto; border-radius: 25px; overflow: hidden; background: #000; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        video { width: 100%; display: block; }
+
+        .game-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px; margin-top: 30px; }
+        .game-item { padding: 25px 15px; background: white; border: 2px solid #e0e7ff; border-radius: 25px; cursor: pointer; font-weight: 700; color: var(--primary); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .game-item.selected { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 10px 20px rgba(67, 97, 238, 0.3); transform: scale(1.05); }
+        .game-item.matched { visibility: hidden; opacity: 0; pointer-events: none; }
+        .target-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-top: 40px; }
+        .target-slot { padding: 25px; border: 3px dashed #d1d5db; border-radius: 25px; min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #fcfcfc; }
+        .target-slot.filled { border-style: solid; border-color: var(--success); background: #eafff5; font-weight: 700; color: #065f46; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+
+        .quiz-item { margin-bottom: 40px; background: #fbfcfe; padding: 30px; border-radius: 25px; border: 1px solid #edf2f7; }
+        .quiz-item p { font-size: 1.15rem; font-weight: 700; margin-top: 0; }
+        .ans-option { display: block; width: 100%; padding: 18px 25px; margin: 12px 0; border: 2px solid #e2e8f0; background: var(--white); border-radius: 20px; text-align: left; cursor: pointer; font-size: 1.05rem; font-weight: 500; }
+        .ans-option:hover:not([disabled]) { border-color: var(--primary); background: #f0f4ff; }
+
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(43, 45, 66, 0.8); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-card { background: white; padding: 50px 40px; border-radius: 40px; text-align: center; width: 90%; max-width: 500px; box-shadow: 0 25px 50px rgba(0,0,0,0.3); animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .rank-badge { display: inline-block; padding: 10px 30px; border-radius: 50px; color: white; font-weight: 800; margin-bottom: 20px; font-size: 1.1rem; }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            .visitor-stats { top: 10px; right: 10px; padding: 5px 12px; font-size: 0.7rem; }
+            .station-content { padding: 30px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="visitor-stats">
+            <div>📍 Máy này: <b id="local-visitor-num">0</b></div>
+            <div>🌎 Toàn cầu: <b id="total-global-num">...</b></div>
+        </div>
+        <h1>HÀNH TRANG SỐ</h1>
+        <p>Kiến tạo tri thức - Chinh phục tương lai</p>
+    </header>
+
+    <div class="container">
+        <!-- TRANG CHỦ -->
+        <div id="home-page" class="fade-in">
+            <div class="lesson-grid">
+                <div class="lesson-card" onclick="openLesson(1)">
+                    <div class="icon">⌛</div>
+                    <h3>Bài 1: Lược sử máy tính</h3>
+                </div>
+                <div class="lesson-card" onclick="openLesson(2)">
+                    <div class="icon">🌐</div>
+                    <h3>Bài 2: Thông tin trong môi trường số</h3>
+                </div>
+                <div class="lesson-card" onclick="openLesson(3)">
+                    <div class="icon">🔍</div>
+                    <h3>Bài 3: Khai thác thông tin số</h3>
+                </div>
+                <div class="lesson-card" onclick="openLesson(4)">
+                    <div class="icon">⚖️</div>
+                    <h3>Bài 4: Đạo đức & Văn hóa số</h3>
+                </div>
+                <div class="lesson-card" onclick="openLesson(5)">
+                    <div class="icon">📊</div>
+                    <h3>Bài 5: Sử dụng bảng tính</h3>
+                </div>
+            </div>
+        </div>
+
+        <div id="lesson-detail" style="display:none">
+            <button class="main-back-btn" onclick="goHome()">← Quay lại Trang chủ</button>
+            <h2 id="current-lesson-name" style="color: var(--primary); margin-bottom: 25px; font-size: 1.8rem; font-weight: 800;"></h2>
+            
+            <div class="station-nav">
+                <button class="station-btn active" onclick="switchTab(0, this)">Trạm Tri Thức</button>
+                <button class="station-btn" onclick="switchTab(1, this)">Trạm Thử Thách</button>
+                <button class="station-btn" onclick="switchTab(2, this)">Trạm Trải Nghiệm</button>
+            </div>
+
+            <div id="display-area" class="station-content"></div>
+        </div>
+    </div>
+
+    <!-- MODAL KẾT QUẢ -->
+    <div id="modal">
+        <div class="modal-card">
+            <div id="modal-icon" style="font-size: 80px; margin-bottom: 15px;">🏆</div>
+            <div id="modal-rank-container"></div>
+            <h2 id="modal-title" style="color: var(--dark); margin: 10px 0; font-weight: 800;">KẾT QUẢ</h2>
+            <div id="modal-score" style="font-size: 2rem; font-weight: 800; color: var(--primary); margin: 15px 0;"></div>
+            <p id="modal-text" style="color: #636e72; font-size: 1.1rem;"></p>
+            <button class="main-back-btn" style="margin-top: 20px; width: 100%; justify-content: center;" onclick="closeModal()">Đóng</button>
+        </div>
+    </div>
+
+    <script>
+        /***********************************************************************
+         * 📦 NGÂN HÀNG DỮ LIỆU - NƠI CHỈNH SỬA CÂU HỎI
+         ***********************************************************************/
+        const lessonsData = {
+            1: {
+                name: "Bài 1: Lược sử máy tính",
+                image: "images/sodo_bai1.png", video: "videos/bai1_ai.mp4",
+                summary: ["Gen 1: Bóng chân không.","Gen 2: Transistor.","Gen 3: Mạch IC.","Gen 4: Vi xử lý.","Gen 5: AI."],
+                quiz: [
+                    { q: "Máy tính Pascaline của Pascal thực hiện phép tính nào?", a: ["Cộng và trừ", "Nhân và chia", "Cả 4 phép tính"], c: 0 },
+                    { q: "Ai được coi là cha đẻ máy tính hiện đại?", a: ["Pascal", "Charles Babbage", "Ada Lovelace"], c: 1 },
+                    { q: "Linh kiện chính thế hệ 1 là gì?", a: ["Transistor", "Bóng chân không", "Mạch IC"], c: 1 },
+                    { q: "Thế hệ 2 dùng linh kiện gì thay bóng chân không?", a: ["Chip silicon", "Transistor", "Mạch IC"], c: 1 },
+                    { q: "Mạch tích hợp (IC) là linh kiện thế hệ thứ mấy?", a: ["1", "2", "3", "4"], c: 2 },
+                    { q: "Máy tính cá nhân (PC) bùng nổ ở thế hệ nào?", a: ["2", "3", "4", "5"], c: 2 },
+                    { q: "Công nghệ AI thuộc thế hệ máy tính nào?", a: ["3", "4", "5", "6"], c: 2 },
+                    { q: "Máy tính ENIAC ra đời năm nào?", a: ["1942", "1945", "1950"], c: 1 },
+                    { q: "Nữ lập trình viên đầu tiên là ai?", a: ["Hopper", "Ada Lovelace", "Curie"], c: 1 },
+                    { q: "VLSI tích hợp hàng triệu linh kiện lên 1 chip?", a: ["Đúng", "Sai"], c: 0 },
+                    { q: "Bộ vi xử lý Intel 4004 ra đời năm nào?", a: ["1961", "1971", "1981"], c: 1 },
+                    { q: "John von Neumann thiết kế máy tính nào?", a: ["ENIAC", "EDVAC", "Pascaline"], c: 1 },
+                    { q: "GUI phổ biến từ thế hệ mấy?", a: ["2", "3", "4"], c: 2 },
+                    { q: "Siêu máy tính nhắc đến nhiều ở thế hệ nào?", a: ["3", "4", "5", "2"], c: 2 },
+                    { q: "Máy tính thương mại đầu tiên là máy nào?", a: ["ENIAC", "UNIVAC I", "IBM PC"], c: 1 }
+                ],
+                game: [
+                    { name: "Bóng chân không", gen: "Thế hệ 1", icon: "💡" },
+                    { name: "Transistor", gen: "Thế hệ 2", icon: "🔌" },
+                    { name: "Mạch tích hợp IC", gen: "Thế hệ 3", icon: "🔳" },
+                    { name: "Vi xử lý (VLSI)", gen: "Thế hệ 4", icon: "🧠" },
+                    { name: "Trí tuệ nhân tạo", gen: "Thế hệ 5", icon: "🤖" }
+                ]
+            },
+            2: {
+                name: "Bài 2: Thông tin trong môi trường số",
+                image: "images/sodo_bai2.png", video: "videos/bai2_ai.mp4",
+                summary: ["Dễ sao chép.", "Lan truyền nhanh.", "Khó thu hồi."],
+                quiz: [
+                    { q: "Đặc điểm nào là của thông tin số?", a: ["Dễ sao chép", "Khó lan truyền", "Dễ thu hồi"], c: 0 },
+                    { q: "Trang web uy tín có đuôi miền nào?", a: [".gov", ".com", ".net"], c: 0 },
+                    { q: "Thông tin số truyền qua môi trường nào?", a: ["Không khí", "Internet", "Sách in"], c: 1 },
+                    { q: "Tin giả nguy hiểm vì sao?", a: ["Gây hoang mang", "Cung cấp kiến thức", "Làm máy chạy nhanh"], c: 0 },
+                    { q: "Đánh giá tin cậy dựa trên điều gì?", a: ["Số lượt like", "Nguồn gốc tin", "Màu sắc tin"], c: 1 },
+                    { q: "Thiết bị số lưu trữ dưới dạng gì?", a: ["Bit 0 và 1", "Giấy", "Băng từ"], c: 0 },
+                    { q: "Công nghệ giúp tìm kiếm nhanh?", a: ["Máy in", "Công cụ tìm kiếm", "Bàn tính"], c: 1 },
+                    { q: "Mạng xã hội là môi trường số?", a: ["Đúng", "Sai"], c: 0 },
+                    { q: "Thông tin số có thể bị chỉnh sửa?", a: ["Có", "Không"], c: 0 },
+                    { q: "Ai tạo ra thông tin số?", a: ["Chuyên gia", "Bất kỳ ai", "Chỉ nhà báo"], c: 1 },
+                    { q: "Hành vi chia sẻ tin giả có bị xử lý pháp luật?", a: ["Có", "Không", "Tùy người"], c: 0 },
+                    { q: "Nhận diện tin giả bằng tính logic?", a: ["Đúng", "Sai"], c: 0 },
+                    { q: ".jpg thuộc loại thông tin nào?", a: ["Văn bản", "Hình ảnh", "Video"], c: 1 },
+                    { q: "Sao chép thông tin số có giảm chất lượng?", a: ["Có", "Không"], c: 1 },
+                    { q: "Mạng xã hội luôn chính xác?", a: ["Có", "Không"], c: 1 }
+                ],
+                game: [
+                    { name: "Web .gov", gen: "Tin cậy", icon: "✅" },
+                    { name: "Tin rác Zalo", gen: "Không tin", icon: "❌" },
+                    { name: "Báo chính thống", gen: "Tin cậy", icon: "📰" }
+                ]
+            },
+            5: {
+                name: "Bài 5: Sử dụng bảng tính",
+                image: "images/sodo_bai5.png", video: "videos/bai5_ai.mp4",
+                summary: ["Địa chỉ ô tương đối/tuyệt đối.", "Tính toán trên bảng tính."],
+                quiz: [
+                    { q: "Địa chỉ nào sau đây là địa chỉ tương đối trong bảng tính?", a: ["$C$4", "C4", "$C4", "C$4"], c: 1 },
+                    { q: "Để cố định cả tên cột và tên hàng khi sao chép công thức, ta dùng:", a: ["Địa chỉ tương đối", "Địa chỉ tuyệt đối", "Địa chỉ số", "Địa chỉ hỗn hợp"], c: 1 },
+                    { q: "Địa chỉ tuyệt đối có dấu hiệu nhận biết là ký tự nào đứng trước?", a: ["Dấu #", "Dấu &", "Dấu $", "Dấu @"], c: 2 },
+                    { q: "Khi nháy chuột vào ô tính lúc nhập công thức, mặc định lấy địa chỉ:", a: ["Địa chỉ tuyệt đối", "Địa chỉ tương đối", "Địa chỉ hàng", "Địa chỉ cột"], c: 1 },
+                    { q: "Đặc điểm của địa chỉ tương đối khi sao chép công thức là gì?", a: ["Không đổi", "Luôn báo lỗi", "Tự động thay đổi vị trí tương đối", "Chỉ đổi tên cột"], c: 2 },
+                    { q: "Nếu ô E4 có =C4*D4, khi sao chép xuống ô E5, công thức sẽ thành:", a: ["=C4*D4", "=C5*D4", "=C4*D5", "=C5*D5"], c: 3 },
+                    { q: "Phát biểu nào sau đây là ĐÚNG về địa chỉ tuyệt đối?", a: ["Thay đổi khi sao chép", "Không thay đổi khi sao chép", "Chỉ có dấu $ trước tên hàng", "Chỉ dùng tính tổng"], c: 1 },
+                    { q: "Tại sao tỉ lệ doanh thu cần viết dạng tuyệt đối $F$2 trong bài học?", a: ["Để tỉ lệ luôn cố định khi sao chép", "Để đẹp hơn", "Vì phần mềm bắt buộc", "Để bảo vệ ô F2"], c: 0 },
+                    { q: "Ô F4 có =E4*$F$2. Khi sao chép xuống F5, công thức là:", a: ["=E4*$F$2", "=E5*F2", "=E5*$F$2", "=E5*$F$3"], c: 2 },
+                    { q: "Để tính nhanh công thức cho các ô từ E5 đến E9, bạn nên làm gì?", a: ["Gõ lại từng ô", "Sử dụng thao tác sao chép công thức", "Copy giá trị dán xuống", "Tính tay rồi nhập vào"], c: 1 },
+                    { q: "Ô B2 có công thức =A1+10. Sao chép sang ô C2, công thức tại C2 là:", a: ["=B1+10", "=A2+10", "=A1+10", "=B2+10"], c: 0 },
+                    { q: "Phím nào giúp chuyển địa chỉ tương đối thành tuyệt đối nhanh nhất?", a: ["F2", "F4", "F12", "Alt"], c: 1 },
+                    { q: "Giả sử ô D2 có =B2*C2. Sao chép sang ô E3, công thức tại E3 là:", a: ["=B2*C2", "=C3*D3", "=B3*C3", "=D2*B2"], c: 1 },
+                    { q: "Nếu dùng địa chỉ tương đối thay vì tuyệt đối cho ô tỉ lệ, ô sao chép sẽ?", a: ["Vẫn đúng", "Bị sai vì lấy sai địa chỉ ô", "Máy tự động sửa lại", "Báo lỗi #VALUE!"], c: 1 },
+                    { q: "Ô C1 có công thức =$A$1+B1. Sao chép xuống ô C2, kết quả là:", a: ["=$A$1+B2", "=$A$2+B2", "=$A$1+B1", "=A1+B2"], c: 0 }
+                ],
+                game: [
+                    { name: "C4", gen: "Tương đối", icon: "↗️" },
+                    { name: "$C$4", gen: "Tuyệt đối", icon: "🔒" },
+                    { name: "B$2", gen: "Hỗn hợp", icon: "⚖️" },
+                    { name: "$A10", gen: "Hỗn hợp", icon: "⚖️" },
+                    { name: "D7", gen: "Tương đối", icon: "↗️" }
+                ]
+            }
+        };
+
+        /***********************************************************************
+         * ⚙️ PHẦN LOGIC XỬ LÝ
+         ***********************************************************************/
+        let currentId = 1, score = 0, answeredCount = 0, selectedItem = null, activeQuizSet = [];
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            if (type === 'click') {
+                osc.frequency.setValueAtTime(800, now); gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            } else if (type === 'correct') {
+                osc.frequency.setValueAtTime(523, now); osc.frequency.exponentialRampToValueAtTime(1046, now + 0.2);
+                gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'wrong') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+                gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'win') {
+                [523, 659, 783, 1046].forEach((f, i) => {
+                    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.frequency.setValueAtTime(f, now + i * 0.1); g.gain.setValueAtTime(0.05, now + i * 0.1);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.4);
+                    o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.4);
+                });
+            }
+        }
+
+        function initVisitorCounter() {
+            let localTotal = parseInt(localStorage.getItem('htso_local_total') || "0") + 1;
+            localStorage.setItem('htso_local_total', localTotal);
+            document.getElementById('local-visitor-num').innerText = localTotal.toLocaleString();
+            let pendingSync = parseInt(localStorage.getItem('htso_pending_sync') || "0") + 1;
+            localStorage.setItem('htso_pending_sync', pendingSync);
+            if (window.syncStats) window.syncStats();
+        }
+        window.addEventListener('load', initVisitorCounter);
+        document.addEventListener('click', (e) => { if (e.target.closest('button') || e.target.closest('.lesson-card') || e.target.closest('.mode-card')) playSound('click'); });
+
+        function openLesson(id) {
+            currentId = id;
+            document.getElementById('home-page').style.display = 'none';
+            document.getElementById('lesson-detail').style.display = 'block';
+            document.getElementById('current-lesson-name').innerText = lessonsData[id]?.name || "Bài học";
+            switchTab(0, document.querySelector('.station-btn'));
+            window.scrollTo(0, 0);
+        }
+
+        function goHome() {
+            document.getElementById('home-page').style.display = 'block';
+            document.getElementById('lesson-detail').style.display = 'none';
+        }
+
+        function switchTab(idx, btn) {
+            document.querySelectorAll('.station-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const display = document.getElementById('display-area');
+            const data = lessonsData[currentId];
+            if(!data) { display.innerHTML = "Đang cập nhật..."; return; }
+            display.classList.remove('fade-in'); void display.offsetWidth; display.classList.add('fade-in');
+            score = 0; answeredCount = 0; selectedItem = null;
+            if(idx === 0) renderTriThuc(data);
+            else if(idx === 1) renderGame(data);
+            else renderQuiz(data.quiz);
+        }
+
+        function renderTriThuc(data) {
+            document.getElementById('display-area').innerHTML = `
+                <div>
+                    <div id="selector" class="mode-selector">
+                        <div class="mode-card" onclick="showK('map')"><i>🗺️</i><h4>Sơ đồ tư duy</h4></div>
+                        <div class="mode-card" onclick="showK('video')"><i>🎬</i><h4>Video bài giảng AI</h4></div>
+                    </div>
+                    <div id="k-map" class="knowledge-display">
+                        <img src="${data.image}" class="mindmap-img" onerror="this.src='https://placehold.co/800x500/e0e7ff/4361ee?text=Sơ+đồ+đang+cập+nhật'">
+                        <div style="margin-top:25px; text-align:left; background:#FFF9F2; padding:25px; border-radius:20px; border-left:5px solid var(--warning);">
+                            <h4 style="margin:0 0 15px 0; color:var(--warning);">📌 Kiến thức cốt lõi:</h4>
+                            <ul style="padding-left:20px;">${data.summary.map(s => `<li style="margin-bottom:10px;">${s}</li>`).join('')}</ul>
+                        </div>
+                        <button class="sub-nav-btn" onclick="showK('selector')">← Quay lại</button>
+                    </div>
+                    <div id="k-video" class="knowledge-display">
+                        <div class="video-container"><video id="v" controls src="${data.video}"></video></div>
+                        <button class="sub-nav-btn" onclick="showK('selector')">← Quay lại</button>
+                    </div>
+                </div>`;
+            showK('selector');
+        }
+
+        function showK(m) {
+            document.getElementById('selector').style.display = m==='selector'?'grid':'none';
+            document.getElementById('k-map').classList.toggle('active', m==='map');
+            document.getElementById('k-video').classList.toggle('active', m==='video');
+            const v = document.getElementById('v'); if(v && m!=='video') v.pause();
+        }
+
+        function renderQuiz(qs) {
+            if (!qs || qs.length === 0) { document.getElementById('display-area').innerHTML = "<h3>Đang chuẩn bị câu hỏi...</h3>"; return; }
+            const shuffled = [...qs].sort(() => Math.random() - 0.5);
+            activeQuizSet = shuffled.slice(0, 10);
+            let h = `<div><h3 style="color:var(--primary); margin-bottom:30px;">🎯 Thử thách trắc nghiệm (Lấy ngẫu nhiên 10 câu)</h3>`;
+            activeQuizSet.forEach((it, i) => {
+                h += `<div class="quiz-item"><p><b>Câu ${i+1}.</b> ${it.q}</p>`;
+                it.a.forEach((ans, j) => { h += `<button class="ans-option" onclick="checkQ(${i}, ${j}, this)">${ans}</button>`; });
+                h += `</div>`;
+            });
+            document.getElementById('display-area').innerHTML = h + `</div>`;
+        }
+
+        function checkQ(qi, ai, btn) {
+            const correct = activeQuizSet[qi].c;
+            const group = btn.parentElement.querySelectorAll('.ans-option');
+            if (group[0].disabled) return;
+            group.forEach(b => b.disabled = true);
+            answeredCount++;
+            if(ai === correct) { 
+                btn.style.background = "#d1fae5"; btn.style.borderColor="#10b981"; btn.style.color="#064e3b"; 
+                score++; playSound('correct'); 
+            } else { 
+                btn.style.background="#fee2e2"; btn.style.borderColor="#ef4444"; btn.style.color="#7f1d1d";
+                group[correct].style.background="#d1fae5"; group[correct].style.borderColor="#10b981";
+                playSound('wrong'); 
+            }
+            if(answeredCount === activeQuizSet.length) setTimeout(() => showFinal(score, answeredCount), 600);
+        }
+
+        function renderGame(data) {
+            if(!data.game || data.game.length === 0) { document.getElementById('display-area').innerHTML = "<h3>Đang cập nhật trò chơi...</h3>"; return; }
+            const items = [...data.game].sort(() => Math.random() - 0.5);
+            const gens = [...new Set(data.game.map(i => i.gen))];
+            let h = `<div><h3>🕹️ Trạm Thử Thách: Phân loại dữ liệu</h3><div class="game-grid">`;
+            items.forEach((it, i) => h += `<div class="game-item" id="gi-${i}" onclick="selG(${i},'${it.gen}','${it.name}','${it.icon}')"><span>${it.icon}</span><b>${it.name}</b></div>`);
+            h += `</div><div class="target-grid">`;
+            gens.forEach(g => h += `<div class="target-slot" id="ts-${g}" onclick="matchG('${g}')"><b>${g}</b></div>`);
+            document.getElementById('display-area').innerHTML = h + `</div></div>`;
+        }
+
+        function selG(i,g,n,ic) { document.querySelectorAll('.game-item').forEach(e => e.classList.remove('selected')); selectedItem = {i,g,n,ic}; document.getElementById(`gi-${i}`).classList.add('selected'); }
+
+        function matchG(g) {
+            if(!selectedItem) return;
+            const slot = document.getElementById(`ts-${g}`);
+            if(selectedItem.g === g) {
+                document.getElementById(`gi-${selectedItem.i}`).classList.add('matched');
+                slot.classList.add('filled'); slot.innerHTML = `<span style="font-size:24px">✅</span><br>${selectedItem.n}`;
+                score++; selectedItem = null; playSound('correct');
+                if(score === lessonsData[currentId].game.length) setTimeout(() => showFinal(score, score, true), 600);
+            } else { playSound('wrong'); alert("Chưa chính xác!"); selectedItem = null; document.querySelectorAll('.game-item').forEach(e => e.classList.remove('selected')); }
+        }
+
+        function showFinal(s, t, isG = false) {
+            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } }); playSound('win');
+            const m = document.getElementById('modal');
+            document.getElementById('modal-score').innerText = `Kết quả: ${s}/${t}`;
+            const rankCont = document.getElementById('modal-rank-container');
+            rankCont.innerHTML = "";
+            let r = "", c = "";
+            if (s === t) { r = "RẤT XUẤT SẮC"; c = "var(--success)"; }
+            else if (s >= t*0.8) { r = "KẾT QUẢ: GIỎI"; c = "#f59e0b"; }
+            else if (s >= t*0.5) { r = "BẠN ĐÃ CỐ GẮNG"; c = "var(--warning)"; }
+            else { r = "CẦN XEM LẠI BÀI"; c = "var(--error)"; }
+            const b = document.createElement('div');
+            b.className = 'rank-badge'; b.style.background = c; b.innerText = r;
+            rankCont.appendChild(b);
+            document.getElementById('modal-title').innerText = isG ? "HOÀN THÀNH!" : "XẾP LOẠI";
+            m.style.display = 'flex';
+        }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    </script>
+</body>
+</html>
